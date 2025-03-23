@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Resource AI Agent</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #response {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Hospital Resource AI Agent</h1>
+        <div class="input-group">
+            <label for="query">Your Query:</label>
+            <input type="text" id="query" placeholder="e.g., wait time in Cardiology">
+            <label for="department">Select Department:</label>
+            <select id="department">
+                <option value="">Select a department</option>
+                <option value="Cardiology">Cardiology</option>
+                <option value="General Surgery">General Surgery</option>
+                <option value="Infectious Diseases">Infectious Diseases</option>
+                <option value="ICU">ICU</option>
+                <option value="ER">ER</option>
+            </select>
+        </div>
+        <div class="button-group">
+            <button onclick="submitQuery()">Submit</button>
+            <button onclick="startVoiceInput()">Speak Query</button>
+            <button onclick="generateReport()">Generate Report</button>
+        </div>
+        <div id="response"></div>
+    </div>
+
+    <script>
+        async function submitQuery() {
+            const query = document.getElementById('query').value;
+            const department = document.getElementById('department').value;
+            const responseDiv = document.getElementById('response');
+
+            if (!query) {
+                responseDiv.innerText = "Please enter a query.";
+                return;
+            }
+
+            responseDiv.innerText = "Processing...";
+
+            try {
+                const response = await fetch('/api/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, department })
+                });
+                const data = await response.json();
+                responseDiv.innerText = data.response;
+            } catch (error) {
+                responseDiv.innerText = `Error: ${error.message}`;
+            }
+        }
+
+        function startVoiceInput() {
+            const queryInput = document.getElementById('query');
+            const responseDiv = document.getElementById('response');
+
+            if (!('webkitSpeechRecognition' in window)) {
+                responseDiv.innerText = "Speech recognition not supported in this browser. Please use a supported browser like Chrome.";
+                return;
+            }
+
+            const recognition = new webkitSpeechRecognition();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.onstart = () => {
+                responseDiv.innerText = "Listening... Please speak your query.";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                queryInput.value = transcript;
+                responseDiv.innerText = `Recognized: ${transcript}`;
+            };
+
+            recognition.onerror = (event) => {
+                responseDiv.innerText = `Speech recognition error: ${event.error}`;
+            };
+
+            recognition.onend = () => {
+                responseDiv.innerText += "\nVoice input ended. Click 'Submit' to process your query.";
+            };
+
+            recognition.start();
+        }
+
+        async function generateReport() {
+            const responseDiv = document.getElementById('response');
+            responseDiv.innerText = "Generating report...";
+
+            try {
+                const response = await fetch('/api/generate_report');
+                const data = await response.json();
+                responseDiv.innerText = data.report;
+
+                // Trigger file download
+                if (data.download_url) {
+                    const link = document.createElement('a');
+                    link.href = data.download_url;
+                    link.download = '';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                }
+            } catch (error) {
+                responseDiv.innerText = `Error generating report: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
